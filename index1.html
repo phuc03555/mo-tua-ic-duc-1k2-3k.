@@ -1,0 +1,430 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Chỉnh IC Xe Điện - Bộ Điều Tốc Mô Phỏng</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'monospace'],
+          },
+          colors: {
+            carbon: '#090d16',
+            panel: '#111827',
+            card: '#162033',
+            accent: '#10b981',
+            cyber: '#38bdf8',
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    /* Custom range slider styling for smooth mobile & desktop touch control */
+    input[type="range"].current-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 12px;
+      border-radius: 9999px;
+      outline: none;
+      cursor: pointer;
+      touch-action: none;
+    }
+
+    input[type="range"].current-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      background: #ffffff;
+      border: 4px solid #10b981;
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25), 0 6px 14px rgba(0, 0, 0, 0.55);
+      cursor: grab;
+      transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="range"].current-slider:active::-webkit-slider-thumb {
+      cursor: grabbing;
+      transform: scale(1.1);
+      border-color: #f59e0b;
+      box-shadow: 0 0 0 6px rgba(245, 158, 11, 0.28), 0 8px 18px rgba(0, 0, 0, 0.65);
+    }
+
+    input[type="range"].current-slider::-moz-range-thumb {
+      width: 28px;
+      height: 28px;
+      border-radius: 9999px;
+      background: #ffffff;
+      border: 4px solid #10b981;
+      box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.25), 0 6px 14px rgba(0, 0, 0, 0.55);
+      cursor: grab;
+      transition: transform 0.12s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    input[type="range"].current-slider:active::-moz-range-thumb {
+      cursor: grabbing;
+      transform: scale(1.1);
+      border-color: #f59e0b;
+    }
+
+    @keyframes pulseDot {
+      0%, 100% { opacity: 1; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(0.85); }
+    }
+
+    .animate-pulse-dot {
+      animation: pulseDot 1.35s infinite ease-in-out;
+    }
+
+    /* Subtle custom scrollbar for log area */
+    .console-scroll::-webkit-scrollbar {
+      width: 6px;
+    }
+    .console-scroll::-webkit-scrollbar-track {
+      background: rgba(15, 23, 42, 0.6);
+      border-radius: 9999px;
+    }
+    .console-scroll::-webkit-scrollbar-thumb {
+      background: rgba(100, 116, 139, 0.45);
+      border-radius: 9999px;
+    }
+  </style>
+</head>
+<body class="bg-carbon text-slate-100 min-h-screen flex flex-col items-center justify-start sm:justify-center p-2 sm:p-5 selection:bg-emerald-500/30 selection:text-emerald-200">
+
+  <!-- Toast / Save Banner Notification -->
+  <div
+    id="toastContainer"
+    aria-live="polite"
+    class="fixed top-4 left-1/2 -translate-x-1/2 z-50 w-[92%] max-w-md pointer-events-none transition-all duration-300 opacity-0 -translate-y-3"
+  >
+    <div id="toastBox" class="flex items-center gap-3 rounded-2xl border border-emerald-400/40 bg-slate-900/95 backdrop-blur-md px-4 py-3 shadow-2xl shadow-emerald-950/50">
+      <div id="toastSpinner" class="hidden h-5 w-5 shrink-0 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin"></div>
+      <div id="toastIcon" class="flex h-7 w-7 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-400 font-bold text-sm">
+        ✓
+      </div>
+      <div class="min-w-0 flex-1">
+        <p id="toastTitle" class="text-xs sm:text-sm font-semibold text-white truncate">Đã lưu cấu hình IC</p>
+        <p id="toastSub" class="text-[11px] sm:text-xs font-mono text-slate-300 truncate">1200w speed controller • 45A</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mobile App Frame Container -->
+  <main class="w-full max-w-md rounded-3xl border border-slate-800 bg-panel shadow-2xl shadow-black/70 overflow-hidden flex flex-col">
+
+    <!-- 1. Top Header Bar -->
+    <header class="sticky top-0 z-20 flex items-center justify-between gap-2 border-b border-slate-800/90 bg-slate-950/90 backdrop-blur-md px-3.5 py-3">
+      <div class="flex items-center gap-2.5 min-w-0">
+        <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500/25 to-sky-500/20 border border-emerald-500/30 text-emerald-400 font-mono font-bold text-xs shadow-inner">
+          IC
+        </div>
+        <div class="min-w-0">
+          <div class="flex items-center gap-1.5">
+            <h1 class="text-sm sm:text-base font-bold tracking-tight text-white truncate">
+              Chỉnh IC Xe Điện
+            </h1>
+            <span class="rounded-md bg-slate-800 border border-slate-700 px-1.5 py-0.5 font-mono text-[10px] text-slate-400">
+              PRO v4.2
+            </span>
+          </div>
+          <p class="text-[11px] text-slate-400 truncate">
+            Sine-Wave Controller Tuner (Mô phỏng)
+          </p>
+        </div>
+      </div>
+
+      <!-- Top-Right Save Button -->
+      <button
+        id="saveConfigBtn"
+        type="button"
+        class="shrink-0 inline-flex items-center gap-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 active:scale-[0.98] text-slate-950 font-semibold text-xs px-3 py-2 shadow-lg shadow-amber-500/20 transition cursor-pointer"
+      >
+        <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+        </svg>
+        <span>lưu cấu hình ic</span>
+      </button>
+    </header>
+
+    <!-- Main Body Content -->
+    <div class="p-3.5 sm:p-4 space-y-4">
+
+      <!-- 2 & 3. Controller Selector ("chọn ic") + Green Connect Button ("kết nối") -->
+      <section class="rounded-2xl border border-slate-800 bg-card/90 p-3.5 space-y-3">
+        <div class="flex items-center justify-between">
+          <label for="controllerSelect" class="text-xs font-semibold uppercase tracking-wider text-slate-300">
+            chọn ic
+          </label>
+          <span id="connectionPill" class="inline-flex items-center gap-1.5 rounded-full bg-slate-900 border border-slate-700/80 px-2.5 py-0.5 text-[11px] font-medium text-slate-400">
+            <span id="statusDot" class="h-2 w-2 rounded-full bg-slate-500"></span>
+            <span id="statusShortText">Chưa kết nối</span>
+          </span>
+        </div>
+
+        <!-- Selector + Connect Row -->
+        <div class="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5">
+          <div class="relative flex-1">
+            <select
+              id="controllerSelect"
+              aria-label="chọn ic"
+              class="w-full appearance-none rounded-xl border border-slate-700 bg-slate-950/90 pl-3.5 pr-9 py-2.5 text-xs sm:text-sm font-mono font-medium text-white focus:border-emerald-400 focus:outline-none focus:ring-2 focus:ring-emerald-500/25 transition cursor-pointer"
+            >
+              <option value="1200w speed controller" selected>1200w speed controller</option>
+              <option value="2000w sine controller v3">2000w sine controller v3</option>
+              <option value="nd990 drag race edition">nd990 drag race edition</option>
+              <option value="votol em200s touring">votol em200s touring</option>
+            </select>
+            <div class="pointer-events-none absolute inset-y-0 right-3 flex items-center text-slate-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7" />
+              </svg>
+            </div>
+          </div>
+
+          <!-- Green Connect Button -->
+          <button
+            id="connectBtn"
+            type="button"
+            class="shrink-0 inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 active:scale-[0.98] text-slate-950 font-bold text-xs sm:text-sm px-4 py-2.5 shadow-lg shadow-emerald-500/25 transition cursor-pointer"
+          >
+            <svg id="connectBtnIcon" class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2.3" viewBox="0 0 24 24" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+            </svg>
+            <span id="connectBtnText">kết nối</span>
+          </button>
+        </div>
+
+        <!-- Connection Status Banner -->
+        <div
+          id="connectionBanner"
+          class="rounded-xl border border-slate-800 bg-slate-950/70 px-3 py-2.5 transition-all duration-300"
+        >
+          <div class="flex items-center gap-2.5">
+            <div id="connectSpinner" class="hidden h-4 w-4 shrink-0 rounded-full border-2 border-emerald-400 border-t-transparent animate-spin"></div>
+            <div id="connectIdleIcon" class="h-2.5 w-2.5 shrink-0 rounded-full bg-amber-400/80"></div>
+            <p id="connectionStatusText" class="text-xs font-mono text-slate-300">
+              Sẵn sàng ghép nối • Chọn IC và bấm "kết nối"
+            </p>
+          </div>
+
+          <!-- Progress bar during connecting -->
+          <div id="connectProgressWrap" class="hidden mt-2.5">
+            <div class="flex justify-between text-[10px] font-mono text-emerald-300/90 mb-1">
+              <span id="handshakeStepText">Đang quét cổng UART / BLE...</span>
+              <span id="handshakePercentText">0%</span>
+            </div>
+            <div class="h-1.5 w-full rounded-full bg-slate-800 overflow-hidden">
+              <div id="connectProgressBar" class="h-full w-0 rounded-full bg-gradient-to-r from-emerald-500 to-sky-400 transition-all duration-200"></div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Simulated Telemetry Badges -->
+        <div class="grid grid-cols-3 gap-2 pt-0.5">
+          <div class="rounded-xl border border-slate-800/90 bg-slate-950/60 px-2.5 py-2">
+            <p class="text-[10px] uppercase tracking-wider text-slate-400">Điện áp</p>
+            <p id="telemetryVoltage" class="font-mono text-xs sm:text-sm font-semibold text-sky-400 mt-0.5">--.- V</p>
+          </div>
+          <div class="rounded-xl border border-slate-800/90 bg-slate-950/60 px-2.5 py-2">
+            <p class="text-[10px] uppercase tracking-wider text-slate-400">Nhiệt độ IC</p>
+            <p id="telemetryTemp" class="font-mono text-xs sm:text-sm font-semibold text-amber-300 mt-0.5">-- °C</p>
+          </div>
+          <div class="rounded-xl border border-slate-800/90 bg-slate-950/60 px-2.5 py-2">
+            <p class="text-[10px] uppercase tracking-wider text-slate-400">Tín hiệu</p>
+            <p id="telemetrySignal" class="font-mono text-xs sm:text-sm font-semibold text-emerald-400 mt-0.5">Offline</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 4. Current Slider Section ("gạc qua lại" từ 20a đến 70a (max)) -->
+      <section class="rounded-2xl border border-slate-800 bg-card/90 p-3.5 sm:p-4 space-y-3.5">
+        <div class="flex items-start justify-between gap-2">
+          <div>
+            <h2 class="text-xs font-semibold uppercase tracking-wider text-slate-300">
+              Dòng xả giới hạn (gạc qua lại)
+            </h2>
+            <p class="text-[11px] text-slate-400 mt-0.5">
+              Kéo thanh trượt để điều chỉnh dòng từ 20a đến 70a (max)
+            </p>
+          </div>
+
+          <!-- Live Amp Readout -->
+          <div class="text-right shrink-0">
+            <div class="inline-flex items-baseline gap-1 rounded-xl bg-slate-950 border border-slate-700/90 px-3 py-1.5">
+              <span id="currentValueDisplay" class="font-mono text-xl sm:text-2xl font-bold text-emerald-400">45</span>
+              <span class="font-mono text-xs font-semibold text-slate-400">A</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Slider Track & Labels -->
+        <div class="pt-1 pb-0.5">
+          <input
+            id="currentSlider"
+            type="range"
+            min="20"
+            max="70"
+            step="1"
+            value="45"
+            aria-label="gạc qua lại từ 20a đến 70a (max)"
+            class="current-slider"
+          />
+          <div class="flex items-center justify-between text-[11px] font-mono text-slate-400 mt-2">
+            <button type="button" data-preset="20" class="hover:text-white transition cursor-pointer">20a</button>
+            <button type="button" data-preset="35" class="hover:text-white transition cursor-pointer">35a</button>
+            <button type="button" data-preset="50" class="hover:text-white transition cursor-pointer">50a</button>
+            <button type="button" data-preset="70" class="font-semibold text-amber-400 hover:text-amber-300 transition cursor-pointer">70a (max)</button>
+          </div>
+        </div>
+
+        <!-- Dynamic Estimated Power & Torque Readout -->
+        <div class="grid grid-cols-2 gap-2.5 pt-1">
+          <div class="rounded-xl border border-slate-800 bg-slate-950/75 p-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">Công suất ước tính</span>
+              <span class="font-mono text-[10px] text-sky-400/80">@60V nom</span>
+            </div>
+            <p id="estPowerDisplay" class="font-mono text-base sm:text-lg font-bold text-white mt-1">2,700 W</p>
+            <p id="powerModeBadge" class="text-[11px] font-medium text-emerald-400 mt-0.5">Chế độ: Cân bằng</p>
+          </div>
+
+          <div class="rounded-xl border border-slate-800 bg-slate-950/75 p-3">
+            <div class="flex items-center justify-between">
+              <span class="text-[11px] text-slate-400">Lực kéo / Đề ba</span>
+              <span class="font-mono text-[10px] text-amber-400/80">Torque</span>
+            </div>
+            <p id="estTorqueDisplay" class="font-mono text-base sm:text-lg font-bold text-white mt-1">64%</p>
+            <p id="torqueHintText" class="text-[11px] text-slate-400 mt-0.5 truncate">Ga đầu mượt, ít hại bình</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- 5. Clean Console / Status Log at Bottom -->
+      <section class="rounded-2xl border border-slate-800 bg-slate-950/90 p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <span class="h-2 w-2 rounded-full bg-emerald-400 animate-pulse-dot"></span>
+            <h3 class="text-[11px] font-mono font-semibold uppercase tracking-wider text-slate-300">
+              Nhật ký hệ thống (Console)
+            </h3>
+          </div>
+          <button
+            id="clearLogBtn"
+            type="button"
+            class="text-[11px] font-mono text-slate-400 hover:text-slate-200 transition cursor-pointer"
+          >
+            Xóa log
+          </button>
+        </div>
+
+        <div
+          id="consoleLog"
+          class="console-scroll h-28 overflow-y-auto rounded-xl border border-slate-800/80 bg-black/45 p-2.5 font-mono text-[11px] leading-relaxed space-y-1 text-slate-300"
+        >
+          <div class="text-slate-500">[BOOT] Khởi động giao diện chỉnh IC mô phỏng...</div>
+        </div>
+
+        <p class="text-[10px] text-center text-slate-500 pt-0.5">
+          Giao diện mô phỏng / giải trí • Không kết nối phần cứng xe thật.
+        </p>
+      </section>
+
+    </div>
+  </main>
+
+  <script>
+    (function () {
+      'use strict';
+
+      // DOM References
+      const controllerSelect = document.getElementById('controllerSelect');
+      const connectBtn = document.getElementById('connectBtn');
+      const connectBtnText = document.getElementById('connectBtnText');
+      const connectBtnIcon = document.getElementById('connectBtnIcon');
+      const connectSpinner = document.getElementById('connectSpinner');
+      const connectIdleIcon = document.getElementById('connectIdleIcon');
+      const connectionStatusText = document.getElementById('connectionStatusText');
+      const connectProgressWrap = document.getElementById('connectProgressWrap');
+      const connectProgressBar = document.getElementById('connectProgressBar');
+      const handshakeStepText = document.getElementById('handshakeStepText');
+      const handshakePercentText = document.getElementById('handshakePercentText');
+      const connectionBanner = document.getElementById('connectionBanner');
+      const connectionPill = document.getElementById('connectionPill');
+      const statusDot = document.getElementById('statusDot');
+      const statusShortText = document.getElementById('statusShortText');
+
+      const telemetryVoltage = document.getElementById('telemetryVoltage');
+      const telemetryTemp = document.getElementById('telemetryTemp');
+      const telemetrySignal = document.getElementById('telemetrySignal');
+
+      const currentSlider = document.getElementById('currentSlider');
+      const currentValueDisplay = document.getElementById('currentValueDisplay');
+      const estPowerDisplay = document.getElementById('estPowerDisplay');
+      const powerModeBadge = document.getElementById('powerModeBadge');
+      const estTorqueDisplay = document.getElementById('estTorqueDisplay');
+      const torqueHintText = document.getElementById('torqueHintText');
+
+      const saveConfigBtn = document.getElementById('saveConfigBtn');
+      const consoleLog = document.getElementById('consoleLog');
+      const clearLogBtn = document.getElementById('clearLogBtn');
+
+      const toastContainer = document.getElementById('toastContainer');
+      const toastBox = document.getElementById('toastBox');
+      const toastSpinner = document.getElementById('toastSpinner');
+      const toastIcon = document.getElementById('toastIcon');
+      const toastTitle = document.getElementById('toastTitle');
+      const toastSub = document.getElementById('toastSub');
+
+      // Application State
+      let state = {
+        selectedController: controllerSelect.value,
+        isConnected: false,
+        isConnecting: false,
+        isSaving: false,
+        currentAmps: parseInt(currentSlider.value, 10),
+        voltage: 60.4,
+        tempC: 36,
+      };
+
+      let connectTimers = [];
+      let toastTimer = null;
+
+      // Utility: Timestamp HH:MM:SS
+      function getTimestamp() {
+        const now = new Date();
+        return now.toTimeString().split(' ')[0];
+      }
+
+      // Utility: Append message to console log
+      function appendLog(message, type = 'info') {
+        try {
+          const line = document.createElement('div');
+          let colorClass = 'text-slate-300';
+          if (type === 'success') colorClass = 'text-emerald-400';
+          else if (type === 'warn') colorClass = 'text-amber-300';
+          else if (type === 'info') colorClass = 'text-sky-300';
+          else if (type === 'muted') colorClass = 'text-slate-500';
+
+          line.className = `${colorClass} break-words`;
+          line.textContent = `[${getTimestamp()}] ${message}`;
+          consoleLog.appendChild(line);
+          consoleLog.scrollTop = consoleLog.scrollHeight;
+        } catch (err) {
+          // Safe fallback if DOM log fails
+        }
+      }
+
+      // Utility: Show Toast Banner
+      function showToast({ title, subtitle, loading = false, 
